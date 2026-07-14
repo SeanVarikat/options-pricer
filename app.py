@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-from black_scholes import black_scholes, delta, gamma, theta, vega, rho, implied_volatility
+from pricing import black_scholes, delta, gamma, theta, vega, rho, implied_volatility
 import yfinance as yf
 from datetime import datetime
 

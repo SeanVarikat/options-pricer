@@ -11,14 +11,24 @@ def simulate_path(S0, mu, sigma, T, steps):
         
     return prices
 
-def simulate_hedge(S0, K, T, r, sigma_implied, sigma_realised, steps):
+def simulate_paths(S0, mu, sigma, T, steps, n_paths):
+    dt = T/steps
+    Z = np.random.standard_normal((n_paths, steps))
+    log_returns = (mu - 0.5 * sigma**2) * dt + sigma * np.sqrt(dt) * Z
+    yearsum = np.cumsum(log_returns, axis=1)
+    St = S0 * np.exp(yearsum)
+    start_column = np.full((n_paths, 1), S0)
+    paths = np.hstack([start_column, St])
+    return paths
+
+
+def simulate_hedge(path, K, T, r, sigma_implied, steps):
     dt = T/steps
     cash = 0
-    path = simulate_path(S0, 0.0, sigma_realised, T, steps)
-    current_price = black_scholes(S0, K, T, r, sigma_implied)
+    current_price = black_scholes(path[0], K, T, r, sigma_implied)
     cash = cash + current_price
-    current_delta = delta(S0, K, T, r, sigma_implied)
-    cash = cash - (current_delta * S0)
+    current_delta = delta(path[0], K, T, r, sigma_implied)
+    cash = cash - (current_delta *path[0])
 
     for i in range(1, steps):
         tau = T - (i *dt)
@@ -33,9 +43,28 @@ def simulate_hedge(S0, K, T, r, sigma_implied, sigma_realised, steps):
 
     return cash
 
-def attribute_pnl(S0, K, T, r, sigma_implied, sigma_realised, steps):
+def simulate_hedge_vec(paths, K, T, r, sigma_implied, steps):
+    dt = T/steps
+    current_price = black_scholes(paths[:,0], K, T, r, sigma_implied)
+    cash = current_price
+    current_delta = delta(paths[:,0], K, T, r, sigma_implied)
+    cash = cash - (current_delta * paths[:,0])
+
+    for i in range(1, steps):
+        tau = T - (i*dt)
+        cash = cash * np.exp(r * dt)
+        new_delta = delta(paths[:,i], K, tau, r, sigma_implied)
+        cash = cash - (new_delta - current_delta)*paths[:,i]
+        current_delta = new_delta
+    
+    cash = cash * np.exp(r * dt)
+    cash = cash + (current_delta * paths[:,-1])
+    cash = cash - np.maximum(paths[:,-1] - K, 0)
+
+    return cash
+
+def attribute_pnl(path, K, T, r, sigma_implied, steps):
     dt = T / steps
-    path = simulate_path(S0, 0.0, sigma_realised, T, steps)
     theta_total = 0
     gamma_total = 0
     for i in range(1, steps):
@@ -49,9 +78,10 @@ def attribute_pnl(S0, K, T, r, sigma_implied, sigma_realised, steps):
 
 
 if __name__ == "__main__":
-    pnls_15 = [simulate_hedge(100, 100, 1.0, 0.05, 0.2, 0.15, 252) for _ in range(1000)]
-    pnls_20 = [simulate_hedge(100, 100, 1.0, 0.05, 0.2, 0.20, 252) for _ in range(1000)]
-    pnls_25 = [simulate_hedge(100, 100, 1.0, 0.05, 0.2, 0.25, 252) for _ in range(1000)]
+
+    pnls_15 = simulate_hedge_vec(simulate_paths(100, 0.0, 0.15, 1.0, 252, 1000), 100, 1.0, 0.05, 0.2, 252)
+    pnls_20 = simulate_hedge_vec(simulate_paths(100, 0.0, 0.20, 1.0, 252, 1000), 100, 1.0, 0.05, 0.2, 252)
+    pnls_25 = simulate_hedge_vec(simulate_paths(100, 0.0, 0.25, 1.0, 252, 1000), 100, 1.0, 0.05, 0.2, 252)
 
     plt.hist(pnls_15, bins=50, alpha=0.5, label="realised 0.15")
     plt.hist(pnls_20, bins=50, alpha=0.5, label="realised 0.20")
@@ -68,7 +98,7 @@ if __name__ == "__main__":
     theta_totals = []
     gamma_totals = []
     for _ in range(1000):
-        th, ga = attribute_pnl(100, 100, 1.0, 0.05, 0.2, 0.2, 252)
+        th, ga = attribute_pnl(simulate_path(100, 0.0, 0.20, 1.0, 252), 100, 1.0, 0.05, 0.2, 252)
         theta_totals.append(th)
         gamma_totals.append(ga)
 

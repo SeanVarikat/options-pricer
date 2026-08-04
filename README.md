@@ -78,7 +78,7 @@ Implied volatility (what the market charges for options, via the VIX) tends to s
 
 Data comes from the S&P 500 (`^GSPC`) and VIX (`^VIX`), 2005 to present, via yfinance. VIX is used as implied volatility, and realised volatility is computed from a rolling window of S&P returns.
 
-The signal goes short vol on days where the gap (implied − realised) exceeds a threshold, so only when options look expensive relative to actual movement.
+The signal goes short vol on days where the gap (implied − realised) exceeds a threshold, so only when options look expensive relative to actual movement. The signal is lagged by one day, so each trade uses only information available before it opens (avoiding lookahead bias).
 
 Each day's P&L is modelled as implied variance sold minus actual realised variance that day, which is equivalent to theta income minus gamma cost, the two forces driving a delta-hedged short option. Realised variance is measured from actual squared daily returns rather than a smoothed estimate, so single-day crash losses (such as March 2020) are captured rather than averaged away.
 
@@ -88,15 +88,15 @@ A per-day transaction cost is charged on days in the trade. The signal threshold
 
 ### Results
 
-Out-of-sample, the best in-sample threshold returned +0.087 on 2005 to 2014 and still +0.070 on the 2015 to 2025 data it was never tuned on, so the edge generalises rather than being curve-fit.
+Out-of-sample, the best in-sample threshold returned +0.059 on 2005 to 2014 and still +0.054 on the 2015 to 2025 data it was never tuned on, so the edge generalises rather than being curve-fit.
 
-The edge is thin, though. At around 0.1bp per day it survives; at 1bp per day every threshold turns negative. Profitability depends on institutional-grade execution costs.
+The edge is thin, though. At around 0.1bp per day it survives; by 0.3bp per day it is close to break-even, and at 0.5bp or above every threshold turns negative. Profitability depends on institutional-grade execution costs.
 
 ### Full straddle-hedge validation
 
 As a cross-check, the analytical P&L above is validated against a full options simulation. On each signal month, a 1-month at-the-money straddle is sold and delta-hedged day by day along the actual S&P path, priced with the Black-Scholes engine in `pricing.py`. This connects the pricer, the hedger, and the backtest into one system.
 
-Over 214 trades the two methods agree in shape and sign. The edge is real, with a hit rate around 84% and occasional sharp losses (the worst single trade falls in the 2020 crash). The annualised Sharpe is about 1.9, though this flatters the strategy: short-vol returns are negatively skewed, so a standard-deviation-based Sharpe understates the true tail risk.
+Over 208 trades the two methods agree in shape and sign. The edge is real, with a hit rate around 85% and occasional sharp losses (the worst single trade falls in the 2020 crash). The annualised Sharpe is about 1.9, though this flatters the strategy: short-vol returns are negatively skewed, so a standard-deviation-based Sharpe understates the true tail risk.
 
 ![Integrated equity curve](backtest_integrated.png)
 

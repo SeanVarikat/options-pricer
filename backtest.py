@@ -17,7 +17,7 @@ data.columns = ["implied", "realised", "price"]
 data = data.dropna()
 data["daily_var"] = returns**2
 data["gap"] = data["implied"] - data["realised"]
-data["signal"] = data['gap'] > 0.50
+data["signal"] = (data['gap'] > 0.50).shift(1).fillna(False)
 data["daily_pnl"] = (((data["implied"]/100)**2)/252) - data["daily_var"]
 data["strategy_pnl"] = data["daily_pnl"] * data["signal"] - (data["signal"] * cost)
 data["cumulative"] = data["strategy_pnl"].cumsum()
@@ -29,21 +29,21 @@ in_sample = data.loc[data.index < "2015-01-01"].copy()
 out_sample = data.loc[data.index >= "2015-01-01"].copy()
 
 for threshold in [0.5, 1.0, 1.5]:
-    in_sample["signal"] = in_sample['gap'] > threshold
+    in_sample["signal"] = (in_sample['gap'] > threshold).shift(1).fillna(False)
     in_sample["strategy_pnl"] = in_sample["daily_pnl"] * in_sample["signal"] - (in_sample["signal"] * cost)
     cumulative_return = in_sample["strategy_pnl"].cumsum()
-    print(cumulative_return.iloc[-1])
+    print(f"in-sample threshold {threshold}: {cumulative_return.iloc[-1]:.4f}")
 
-out_sample["signal"] = out_sample["gap"] > 0.5
+out_sample["signal"] = (out_sample["gap"] > 0.5).shift(1).fillna(False)
 out_sample["strategy_pnl"] = out_sample["daily_pnl"] * out_sample["signal"] - (out_sample["signal"] * cost)
 cumulative_return_out = out_sample["strategy_pnl"].cumsum()
-print(cumulative_return_out.iloc[-1])
+print(f"out-of-sample (threshold 0.5): {cumulative_return_out.iloc[-1]:.4f}")
 
 total_return = data["cumulative"].iloc[-1]
 max_drawdown = data["drawdown"].min()
 
 print("total return:", total_return)
-print("max drawdown:,", max_drawdown)
+print("max drawdown:", max_drawdown)
 
 data["cumulative"].plot()
 plt.xlabel("Date")
@@ -77,3 +77,10 @@ plt.ylabel("Cumulative P&L (S&P index points)")
 plt.title("Straddle-hedge backtest: cumulative P&L")
 plt.savefig("backtest_integrated.png", dpi=150, bbox_inches="tight")
 plt.show()
+
+
+print("\ncost sweep (break-even search):")
+for c in [0.0001, 0.00007, 0.00005, 0.00003, 0.00001, 0]:
+    strat = data["daily_pnl"] * data["signal"] - (data["signal"] * c)
+    total = strat.cumsum().iloc[-1]
+    print(f"cost {c} ({c*10000:.1f}bp/day): total return {total:.4f}")

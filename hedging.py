@@ -1,5 +1,5 @@
 import numpy as np
-from pricing import black_scholes, delta, theta, gamma
+from pricing import black_scholes, delta, theta, gamma, straddle_price
 import matplotlib.pyplot as plt
 
 def simulate_path(S0, mu, sigma, T, steps):
@@ -73,6 +73,32 @@ def attribute_pnl(path, K, T, r, sigma_implied, steps):
         dS = path[i] - path[i-1]
         gamma_total = gamma_total - (0.5 * gamma(path[i], K, tau, r, sigma_implied) * dS**2)
     return theta_total, gamma_total
+
+def hedge_straddle(prices, K, r, sigma_implied, T):
+    steps = len(prices)-1
+    dt = T/steps
+    cash = straddle_price(prices[0], K, T, r, sigma_implied)
+    call_delta = delta(prices[0], K, T, r, sigma_implied, 'call')
+    put_delta = delta(prices[0], K, T, r, sigma_implied, 'put')
+    current_delta = call_delta + put_delta
+    cash = cash - (current_delta * prices[0])
+
+    for i in range(1, steps):
+        tau = T - (i*dt)
+        cash = cash * np.exp(r * dt)
+        new_call_delta = delta(prices[i], K, tau, r, sigma_implied, 'call')
+        new_put_delta = delta(prices[i], K, tau, r, sigma_implied, 'put')
+        new_delta = new_put_delta + new_call_delta
+        cash = cash - (new_delta - current_delta)*prices[i]
+        current_delta = new_delta
+    
+    cash = cash * np.exp(r*dt)
+    cash = cash + (current_delta * prices[-1])
+    cash = cash - np.maximum(prices[-1] - K, 0) - np.maximum(K - prices[-1], 0)
+
+    return cash
+
+
 
 
 

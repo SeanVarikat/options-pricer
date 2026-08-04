@@ -88,3 +88,69 @@ P&L is the near-cancellation of two large forces:
 
 The small residual reflects higher-order terms and interest not captured by the
 first-order attribution.
+
+## Variance Risk Premium Backtest
+
+A systematic test of the short-volatility trade on 20 years of real market
+data: does selling S&P 500 volatility — collecting the gap between implied and
+realised vol — actually make money, and does the edge survive realistic
+trading costs?
+
+### The idea
+
+Implied volatility (what the market charges for options, via the VIX) tends to
+sit above realised volatility (what the market actually delivers). That
+persistent gap is the *variance risk premium*, and a short-vol seller harvests
+it. This backtest builds a signal around the gap and evaluates it honestly —
+with transaction costs and an out-of-sample test.
+
+### Method
+
+- **Data:** S&P 500 (`^GSPC`) and VIX (`^VIX`) from 2005 to present, via
+  yfinance. VIX is used as implied volatility; realised volatility is computed
+  from a rolling window of S&P returns.
+- **Signal:** go short vol on days where the gap (implied − realised) exceeds a
+  threshold — only when options look expensive relative to actual movement.
+- **P&L:** each day's return is modelled as implied variance sold minus actual
+  realised variance that day — equivalent to theta income minus gamma cost, the
+  two forces driving a delta-hedged short option. Realised variance is measured
+  from actual squared daily returns rather than a smoothed estimate, so
+  single-day crash losses (e.g. March 2020) are captured rather than averaged
+  away.
+- **Costs:** a per-day transaction cost is charged on days in the trade.
+- **Validation:** the signal threshold is tuned on 2005–2014 (in-sample) and
+  tested, untouched, on 2015–2025 (out-of-sample).
+
+![Equity curve](backtest_equity.png)
+
+### Results
+
+- **Out-of-sample:** the best in-sample threshold returned **+0.087** on
+  2005–2014 and still **+0.070** on the 2015–2025 data it was never tuned on —
+  the edge generalises rather than being curve-fit.
+- **Cost sensitivity:** the edge is thin. At ~0.1bp per day it survives; at
+  1bp per day every threshold turns negative. Profitability depends on
+  institutional-grade execution costs.
+
+### Full straddle-hedge validation
+
+As a cross-check, the analytical P&L above is validated against a full options
+simulation: on each signal month, a 1-month at-the-money straddle is sold and
+delta-hedged day by day along the *actual* S&P path, priced with the
+Black-Scholes engine in `pricing.py`. This connects the pricer, the hedger, and
+the backtest into one system.
+
+Over 214 trades the two methods agree in shape and sign — the edge is real,
+with a ~84% hit rate and occasional sharp losses (worst single trade in the
+2020 crash). Annualised Sharpe ≈ 1.9, though this flatters the strategy:
+short-vol returns are negatively skewed, so a standard-deviation-based Sharpe
+understates the true tail risk.
+
+![Integrated equity curve](backtest_integrated.png)
+
+### Conclusion
+
+The variance risk premium is real and generalises out-of-sample, but it is thin
+and carries sharp tail risk — only tradeable with very low execution costs,
+which is why this trade belongs to low-cost institutional players rather than
+retail.

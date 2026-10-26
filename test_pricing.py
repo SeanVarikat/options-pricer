@@ -1,4 +1,4 @@
-from pricing import black_scholes, delta, gamma, theta, vega, rho, implied_volatility
+from pricing import black_scholes, delta, gamma, theta, vega, rho, implied_volatility, straddle_price
 import numpy as np
 
 def test_call_price():
@@ -77,3 +77,7 @@ def test_implied_volatility_roundtrip():
     iv = implied_volatility(price, S, K, T, r, 'call')
     assert abs(iv - sigma) < 1e-6
 
+def test_straddle_price():
+    S, K, T, r, sigma = 100, 100, 1, 0.05, 0.2
+    expected = black_scholes(S, K, T, r, sigma, 'call') + black_scholes(S, K, T, r, sigma, 'put')
+    assert abs(straddle_price(S, K, T, r, sigma) - expected) < 1e-10
